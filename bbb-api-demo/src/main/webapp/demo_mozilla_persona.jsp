@@ -31,7 +31,7 @@ Author: Marcos Calderon <mcmarkos86@gmail.com>
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 	<title>Join Demo Meeting using Mozilla Persona</title>
-	<script src="https://browserid.org/include.js" type="text/javascript"></script> 
+	<script src="https://login.persona.org/include.js" type="text/javascript"></script> 
 	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
 </head>
 
@@ -109,7 +109,7 @@ function loggedIn(res){
 
 		String data = URLEncoder.encode("assertion", "UTF-8") + "=" + URLEncoder.encode(request.getParameter("assertion"), "UTF-8");
 		data += "&" + URLEncoder.encode("audience", "UTF-8") + "=" + URLEncoder.encode(BigBlueButtonURL.replace("/bigbluebutton/",""),"UTF-8");
-		URL urlBrowserID = new URL("https://browserid.org/verify");
+		URL urlBrowserID = new URL("https://verifier.login.persona.org/verify");
 
 
 		URLConnection conn = urlBrowserID.openConnection();
@@ -132,7 +132,6 @@ function loggedIn(res){
 
         Gson gson = new Gson();
 		HashMap<String,String> map = gson.fromJson(jsonResp, new TypeToken<Map<String, String>>() {}.getType());
-
 		if(map.get("status").equalsIgnoreCase("okay")){
 			joinURL = getJoinURL(map.get("email"), "Demo Meeting", "false", null, null, null);
 		}
@@ -143,7 +142,7 @@ function loggedIn(res){
 	// String preUploadPDF = "<?xml version='1.0' encoding='UTF-8'?><modules><module name='presentation'><document url='"+url+"pdfs/sample.pdf'/></module></modules>";
 	
 
-	if (joinURL.startsWith("http://")) { 
+	if (joinURL.startsWith("http://") || joinURL.startsWith("https://")) { 
 %>
 
 <script language="javascript" type="text/javascript">

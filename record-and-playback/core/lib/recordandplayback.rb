@@ -35,6 +35,8 @@ require 'recordandplayback/generators/matterhorn_processor'
 require 'recordandplayback/generators/audio_processor'
 require 'recordandplayback/generators/presentation'
 require 'open4'
+require 'pp'
+require 'absolute_time'
 
 module BigBlueButton
   class MissingDirectoryException < RuntimeError
@@ -85,6 +87,14 @@ module BigBlueButton
     logger.level = Logger::INFO
     @logger = logger
   end
+
+  def self.redis_publisher=(publisher)
+    @redis_publisher = publisher
+  end
+
+  def self.redis_publisher
+    return @redis_publisher
+  end
   
   def self.dir_exists?(dir)
     FileTest.directory?(dir)
@@ -110,5 +120,39 @@ module BigBlueButton
       raise "Execution failed"
     end
     status
+  end
+
+  def self.exec_ret(*command)
+    BigBlueButton.logger.info "Executing: #{command.join(' ')}"
+    IO.popen([*command, :err => [:child, :out]]) do |io|
+      io.lines.each do |line|
+        BigBlueButton.logger.info line.chomp
+      end
+    end
+    BigBlueButton.logger.info "Exit status: #{$?.exitstatus}"
+    return $?.exitstatus
+  end
+
+  def self.exec_redirect_ret(outio, *command)
+    BigBlueButton.logger.info "Executing: #{command.join(' ')}"
+    BigBlueButton.logger.info "Sending output to #{outio}"
+    IO.pipe do |r, w|
+      pid = spawn(*command, :out => outio, :err => w)
+      w.close
+      r.lines.each do |line|
+        BigBlueButton.logger.info line.chomp
+      end
+      Process.waitpid(pid)
+      BigBlueButton.logger.info "Exit status: #{$?.exitstatus}"
+      return $?.exitstatus
+    end
+  end
+
+  def self.hash_to_str(hash)
+    return PP.pp(hash, "")
+  end
+
+  def self.monotonic_clock()
+    return (AbsoluteTime.now * 1000).to_i
   end
 end

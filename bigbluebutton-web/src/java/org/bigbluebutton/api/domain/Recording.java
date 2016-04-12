@@ -26,6 +26,8 @@ import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
 
+import groovy.util.slurpersupport.GPathResult;
+
 public class Recording {
 	private String id;
 	private String meetingID;
@@ -40,8 +42,18 @@ public class Recording {
 	private String state;
 	private String playbackLink;
 	private String playbackFormat;
-	
-	
+	private String playbackDuration;
+	private GPathResult playbackExtensions;
+
+    public static final String STATE_PROCESSING = "processing";
+    public static final String STATE_PROCESSED = "processed";
+    public static final String STATE_PUBLISING = "publishing";
+    public static final String STATE_PUBLISHED = "published";
+    public static final String STATE_UNPUBLISING = "unpublishing";
+    public static final String STATE_UNPUBLISHED = "unpublished";
+    public static final String STATE_DELETING = "deleting";
+    public static final String STATE_DELETED = "deleted";
+
 	public String getId() {
 		return id;
 	}
@@ -51,6 +63,10 @@ public class Recording {
 	}
 	
 	public String getState() {
+	    String state = this.state;
+	    if ( state == null || state.equals("") || state.equals("available") ) {
+	        state = isPublished()? STATE_PUBLISHED: STATE_UNPUBLISHED;
+	    }
 		return state;
 	}
 	
@@ -93,9 +109,25 @@ public class Recording {
 	public String getPlaybackFormat() {
 		return playbackFormat;
 	}
-	
+
 	public void setPlaybackFormat(String playbackFormat) {
 		this.playbackFormat = playbackFormat;
+	}
+	
+	public String getPlaybackDuration() {
+		return playbackDuration;
+	}
+	
+	public void setPlaybackDuration(String playbackDuration) {
+		this.playbackDuration = playbackDuration;
+	}
+
+	public GPathResult getPlaybackExtensions() {
+		return playbackExtensions;
+	}
+
+	public void setPlaybackExtensions(GPathResult playbackExtensions) {
+		this.playbackExtensions = playbackExtensions;
 	}
 	
 	public Map<String, String> getMetadata() {

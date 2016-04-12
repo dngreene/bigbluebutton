@@ -43,6 +43,7 @@ package org.bigbluebutton.modules.whiteboard.business.shapes
         public static const TEXT:String = "text";      
 		public static const TRIANGLE:String = "triangle";
 		public static const LINE:String = "line";	
+		public static const POLL:String = "poll_result";
 				
 		/**
 		 * Status = [START, UPDATE, END]
@@ -98,11 +99,11 @@ package org.bigbluebutton.modules.whiteboard.business.shapes
         
         public function makeGraphic(parentWidth:Number, parentHeight:Number):void {}
 		
-        public function draw(a:Annotation, parentWidth:Number, parentHeight:Number):void {
+        public function draw(a:Annotation, parentWidth:Number, parentHeight:Number, zoom:Number):void {
             
         }
         
-        public function redraw(a:Annotation, parentWidth:Number, parentHeight:Number):void {
+        public function redraw(a:Annotation, parentWidth:Number, parentHeight:Number, zoom:Number):void {
             
         }
 	}

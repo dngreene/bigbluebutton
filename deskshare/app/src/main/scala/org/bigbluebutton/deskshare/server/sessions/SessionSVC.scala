@@ -44,28 +44,45 @@ class SessionSVC(sessionManager:SessionManagerSVC, room: String, screenDim: Dime
 	private var stop = true
 	private var mouseLoc:Point = new Point(100,100)
 	private var pendingGenKeyFrameRequest = false
-	private var timestamp = 0L;
-	
+	private var lastUserKeyFrameRequest = 0L
+	private var sentInitialKeyFrame = false;
+	private var lastKeyFrameSentOn = 0L
+  private var streamStartedOn = 0L
+  private var streamStarted = false
+  
 	/*
 	 * Schedule to generate a key frame after 30seconds of a request.
 	 * This prevents us from generating unnecessary key frames when
 	 * users join within seconds of each other.
 	 */
-	def scheduleGenerateKeyFrame() {
-		val mainActor = self
-		actor {
-			Thread.sleep(keyFrameInterval)
-			mainActor ! "GenerateAKeyFrame"
+	def scheduleGenerateKeyFrame(waitSec:Int) {
+		if (!pendingGenKeyFrameRequest) {
+			pendingGenKeyFrameRequest = true
+			val mainActor = self
+			actor {
+				Thread.sleep(waitSec)
+				mainActor ! "GenerateAKeyFrame"
+			}
 		}
 	}
 	
-	def scheduleGenerateFrame() {
-		val mainActor = self
-		actor {
-			Thread.sleep(interframeInterval)
-			mainActor ! "GenerateFrame"
-		}
-	}
+def scheduleGenerateFrame() {
+    val mainActor = self
+    actor {
+      Thread.sleep(interframeInterval)
+      val now = System.currentTimeMillis()
+      if ((now - lastKeyFrameSentOn) > 60000) {
+        // Generate a key frame every 1 minute. The reason is that if
+        // packets are dropped for a user with slow connection, packets
+        // will continue to be dropped for that user until a key frame
+        // is sent. (ralam july 15, 2015)
+        mainActor ! "GenerateAKeyFrame"
+      } else {
+        mainActor ! "GenerateFrame"
+      }
+      
+    }
+  }
 	
 	def act() = {
       loop {
@@ -82,15 +99,20 @@ class SessionSVC(sessionManager:SessionManagerSVC, room: String, screenDim: Dime
 	            }
             }
           case GenerateKeyFrame => {
-        	  if (!pendingGenKeyFrameRequest) {
-        	 	  pendingGenKeyFrameRequest = true
-        	 	  scheduleGenerateKeyFrame()
-        	  }        	  
-            }
+            // do not generate a key frame every time a user joins as we
+            // generate key frames regularly now.
+        	  //scheduleGenerateKeyFrame(keyFrameInterval)
+          }
           case "GenerateAKeyFrame" => {
-        	  pendingGenKeyFrameRequest = false
-         	  log.debug("Session: Generating Key Frame for room %s", room)
-        	  generateFrame(true)       	  
+            pendingGenKeyFrameRequest = false
+            log.debug("Session: Generating Key Frame for room %s", room)
+            generateFrame(true)     
+            lastKeyFrameSentOn = System.currentTimeMillis()
+            if (!stop) {
+                scheduleGenerateFrame()
+            } else {
+                exit()
+            }     	  
           }
           case b: UpdateSessionBlock => updateBlock(b.position, b.blockData, b.keyframe, b.seqNum)
           case m: Any => log.warning("Session: Unknown message [%s]", m)
@@ -124,7 +146,17 @@ class SessionSVC(sessionManager:SessionManagerSVC, room: String, screenDim: Dime
 	
 	private def updateBlock(position: Int, videoData: Array[Byte], keyFrame: Boolean, seqNum: Int): Unit = {
 		lastUpdate = System.currentTimeMillis()
-		blockManager.updateBlock(position, videoData, keyFrame, seqNum)	
+		blockManager.updateBlock(position, videoData, keyFrame, seqNum)
+		
+		if (!sentInitialKeyFrame) {
+		  // We have received all the blocks from the applet. Force sending a key frame
+		  // to all clients so they won't see the trickle effect.
+		  if (blockManager.hasReceivedAllBlocks) {
+		    log.debug("Session: Received all blocks. Generating key frame for session %s", room)
+		    scheduleGenerateKeyFrame(1)
+		    sentInitialKeyFrame = true;
+		  }
+		}		
 	}
 	
 	private def generateFrame(keyframe:Boolean) {				  
@@ -133,8 +165,15 @@ class SessionSVC(sessionManager:SessionManagerSVC, room: String, screenDim: Dime
 			sessionManager ! new RemoveSession(room)
 		} else {
 		  if (blockManager != null) {
-			  timestamp += 50;
-			  stream ! new UpdateStream(room, blockManager.generateFrame(keyframe), timestamp)
+
+        val now = System.currentTimeMillis()
+        if (!streamStarted) {
+          streamStarted = true
+          streamStartedOn = now
+        }
+        
+        val ts = now - streamStartedOn
+			  stream ! new UpdateStream(room, blockManager.generateFrame(keyframe), ts)
 			  stream ! new UpdateStreamMouseLocation(room, mouseLoc)
 		  }
 		}
